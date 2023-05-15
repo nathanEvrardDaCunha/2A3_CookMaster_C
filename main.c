@@ -10,6 +10,39 @@ size_t writeApiResponseToBuffer(char *data, size_t blockSize, size_t blockCount,
     return receivedDataSize; 
 }
 
+json_t *extractValueFromJsonByKey(json_t *jsonRoot, const char *searchKey) {
+    if (!json_is_object(jsonRoot)) {
+        fprintf(stderr, "Le JSON fourni n'est pas un objet.\n");
+        return NULL;
+    }
+
+    json_t *foundValue = NULL;
+    const char *currentKey;
+
+    json_object_foreach(jsonRoot, currentKey, foundValue) {
+        if (strcmp(searchKey, currentKey) == 0) {
+            return foundValue;
+        }
+        else if (json_is_object(foundValue)) {
+            json_t *nestedValue = extractValueFromJsonByKey(foundValue, searchKey);
+            if (nestedValue != NULL) {
+                return nestedValue;
+            }
+        }
+        else if (json_is_array(foundValue)) {
+            size_t arraySize = json_array_size(foundValue);
+            for (size_t i = 0; i < arraySize; i++) {
+                json_t *nestedValue = extractValueFromJsonByKey(json_array_get(foundValue, i), searchKey);
+                if (nestedValue != NULL) {
+                    return nestedValue;
+                }
+            }
+        }
+    }
+
+    return NULL;
+}
+
 int main(void) {
     CURL *apiRequest;
     CURLcode requestResult;
@@ -34,7 +67,21 @@ int main(void) {
             if (!jsonRoot) {
                 fprintf(stderr, "Erreur lors de l'analyse de la réponse JSON: %s\n", jsonError.text);
             } else {
-                printf("Réponse JSON chargée avec succès.\n");
+                const char *searchKey = "exampleKey";
+                json_t *value = extractValueFromJsonByKey(jsonRoot, searchKey);
+                if (value) {
+                    if (json_is_number(value)) {
+                        double numberValue = json_number_value(value);
+                        printf("La valeur de '%s' est %f.\n", searchKey, numberValue);
+                    }
+                    else if (json_is_string(value)) {
+                        const char *stringValue = json_string_value(value);
+                        printf("La valeur de '%s' est : %s.\n", searchKey, stringValue);
+                    }
+                    else {
+                        fprintf(stderr, "La clé '%s' n'a pas été trouvée ou n'est pas du bon type.\n", searchKey);
+                    }
+                }
                 json_decref(jsonRoot);
             }
         }
