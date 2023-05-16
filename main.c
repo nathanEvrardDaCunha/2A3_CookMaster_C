@@ -51,8 +51,23 @@ int main(void) {
     curl_global_init(CURL_GLOBAL_DEFAULT);
     apiRequest = curl_easy_init();
 
+    char apiUrl[1024];
+    printf("Veuillez entrer l'URL de l'API :\n");
+    scanf("%1023s", apiUrl);
+
+    int numOfKeys;
+    printf("\nCombien de clés voulez-vous entrer ?\n");
+    scanf("%d", &numOfKeys);
+
+    char searchKeys[numOfKeys][256];
+    printf("\nVeuillez entrer les clés une par une :\n");
+    for (int i = 0; i < numOfKeys; i++) {
+        printf("Clé n°%d : ", i + 1);
+        scanf("%255s", searchKeys[i]);
+    }
+
     if (apiRequest) {
-        curl_easy_setopt(apiRequest, CURLOPT_URL, "http://example.com");
+        curl_easy_setopt(apiRequest, CURLOPT_URL, apiUrl);
         curl_easy_setopt(apiRequest, CURLOPT_WRITEFUNCTION, writeApiResponseToBuffer);
         curl_easy_setopt(apiRequest, CURLOPT_WRITEDATA, apiResponse);
 
@@ -67,19 +82,20 @@ int main(void) {
             if (!jsonRoot) {
                 fprintf(stderr, "Erreur lors de l'analyse de la réponse JSON: %s\n", jsonError.text);
             } else {
-                const char *searchKey = "exampleKey";
-                json_t *value = extractValueFromJsonByKey(jsonRoot, searchKey);
-                if (value) {
-                    if (json_is_number(value)) {
-                        double numberValue = json_number_value(value);
-                        printf("La valeur de '%s' est %f.\n", searchKey, numberValue);
-                    }
-                    else if (json_is_string(value)) {
-                        const char *stringValue = json_string_value(value);
-                        printf("La valeur de '%s' est : %s.\n", searchKey, stringValue);
-                    }
-                    else {
-                        fprintf(stderr, "La clé '%s' n'a pas été trouvée ou n'est pas du bon type.\n", searchKey);
+                for (int i = 0; i < numOfKeys; i++) {
+                    json_t *value = extractValueFromJsonByKey(jsonRoot, searchKeys[i]);
+                    if (value) {
+                        if (json_is_number(value)) {
+                            double numberValue = json_number_value(value);
+                            printf("La valeur de '%s' est %f.\n", searchKeys[i], numberValue);
+                        }
+                        else if (json_is_string(value)) {
+                            const char *stringValue = json_string_value(value);
+                            printf("La valeur de '%s' est : %s.\n", searchKeys[i], stringValue);
+                        }
+                        else {
+                            fprintf(stderr, "La clé '%s' n'a pas été trouvée ou n'est pas du bon type.\n", searchKeys[i]);
+                        }
                     }
                 }
                 json_decref(jsonRoot);
