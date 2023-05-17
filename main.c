@@ -43,28 +43,14 @@ json_t *extractValueFromJsonByKey(json_t *jsonRoot, const char *searchKey) {
     return NULL;
 }
 
-int main(void) {
+
+void fetchApiDataAndPrintValues(const char *apiUrl, const char *searchKeys[], int numOfKeys) {
     CURL *apiRequest;
     CURLcode requestResult;
     char apiResponse[4096] = { 0 };
 
     curl_global_init(CURL_GLOBAL_DEFAULT);
     apiRequest = curl_easy_init();
-
-    char apiUrl[1024];
-    printf("Veuillez entrer l'URL de l'API :\n");
-    scanf("%1023s", apiUrl);
-
-    int numOfKeys;
-    printf("\nCombien de clés voulez-vous entrer ?\n");
-    scanf("%d", &numOfKeys);
-
-    char searchKeys[numOfKeys][256];
-    printf("\nVeuillez entrer les clés une par une :\n");
-    for (int i = 0; i < numOfKeys; i++) {
-        printf("Clé n°%d : ", i + 1);
-        scanf("%255s", searchKeys[i]);
-    }
 
     if (apiRequest) {
         curl_easy_setopt(apiRequest, CURLOPT_URL, apiUrl);
@@ -106,5 +92,40 @@ int main(void) {
     }
 
     curl_global_cleanup();
+}
+
+
+int main(void) {
+    printf("\n----------------------------------------------------\n");
+    printf("      Bienvenue dans l'outil d'extraction d'API     \n");
+    printf("----------------------------------------------------\n\n");
+
+    char apiUrl[1024];
+    printf("Veuillez entrer l'URL de l'API :\n");
+    scanf("%1023s", apiUrl);
+
+    int numOfKeys;
+    printf("\nCombien de clés voulez-vous entrer ?\n");
+    scanf("%d", &numOfKeys);
+
+    char searchKeys[numOfKeys][256];
+    printf("\nVeuillez entrer les clés une par une :\n");
+    for (int i = 0; i < numOfKeys; i++) {
+        printf("Clé n°%d : ", i + 1);
+        scanf("%255s", searchKeys[i]);
+    }
+
+    printf("\nTraitement en cours...\n\n");
+
+    const char *keysPtrs[numOfKeys];
+    for (int i = 0; i < numOfKeys; i++) {
+        keysPtrs[i] = searchKeys[i];
+    }
+
+    fetchApiDataAndPrintValues(apiUrl, keysPtrs, numOfKeys);
+
+    printf("\nL'extraction des données est terminée. Merci d'avoir utilisé l'outil d'extraction d'API.\n\n");
+
     return 0;
 }
+
