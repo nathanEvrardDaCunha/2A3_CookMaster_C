@@ -3,14 +3,27 @@
 #include <curl/curl.h>
 #include <jansson.h>
 
+// Cette fonction est utilisée par libcurl comme un rappel pour écrire les données reçues
+// Les données sont écrites dans responseBuffer, qui est une chaîne de caractères dans ce cas.
 size_t writeApiResponseToBuffer(char *data, size_t blockSize, size_t blockCount, void *responseBuffer) {
+
+    // Calculer la taille réelle des données
     size_t receivedDataSize = blockSize * blockCount; 
+
     char *responseStr = (char *)responseBuffer; 
+
+    // Ajouter les nouvelles données à la fin de la chaîne
     strcat(responseStr, data); 
+
     return receivedDataSize; 
+
 }
 
-json_t *extractValueFromJsonByKey(json_t *jsonRoot, const char *searchKey) {
+
+// Cette fonction extrait une valeur spécifique d'un objet JSON en fonction de la clé fournie.
+// Elle parcourt récursivement les sous-objets et tableaux pour trouver la clé.
+json_t *extractValueFromJsonByKey(json_t *jsonRoot, const char *searchKey)
+{
     if (!json_is_object(jsonRoot)) {
         fprintf(stderr, "Le JSON fourni n'est pas un objet.\n");
         return NULL;
@@ -44,14 +57,12 @@ json_t *extractValueFromJsonByKey(json_t *jsonRoot, const char *searchKey) {
 }
 
 
-void fetchApiDataAndPrintValues(const char *apiUrl, const char *searchKeys[], int numOfKeys) {
+void fetchApiDataAndPrintValues(const char *apiUrl, const char *searchKeys[], size_t numOfKeys) {
     CURL *apiRequest;
     CURLcode requestResult;
     char apiResponse[4096] = { 0 };
 
-    curl_global_init(CURL_GLOBAL_DEFAULT);
     apiRequest = curl_easy_init();
-
     if (apiRequest) {
         curl_easy_setopt(apiRequest, CURLOPT_URL, apiUrl);
         curl_easy_setopt(apiRequest, CURLOPT_WRITEFUNCTION, writeApiResponseToBuffer);
@@ -61,14 +72,12 @@ void fetchApiDataAndPrintValues(const char *apiUrl, const char *searchKeys[], in
 
         if (requestResult != CURLE_OK) {
             fprintf(stderr, "Erreur lors de la requête CURL: %s\n", curl_easy_strerror(requestResult));
-        } else {
+        }
+        else {
             json_error_t jsonError;
             json_t *jsonRoot = json_loads(apiResponse, 0, &jsonError);
-
-            if (!jsonRoot) {
-                fprintf(stderr, "Erreur lors de l'analyse de la réponse JSON: %s\n", jsonError.text);
-            } else {
-                for (int i = 0; i < numOfKeys; i++) {
+            if (jsonRoot) {
+                for (size_t i = 0; i < numOfKeys; i++) {
                     json_t *value = extractValueFromJsonByKey(jsonRoot, searchKeys[i]);
                     if (value) {
                         if (json_is_number(value)) {
@@ -86,12 +95,12 @@ void fetchApiDataAndPrintValues(const char *apiUrl, const char *searchKeys[], in
                 }
                 json_decref(jsonRoot);
             }
+            else {
+                fprintf(stderr, "Erreur lors de l'analyse de la réponse JSON: %s\n", jsonError.text);
+            }
         }
-
         curl_easy_cleanup(apiRequest);
     }
-
-    curl_global_cleanup();
 }
 
 
@@ -99,7 +108,7 @@ int main(void) {
     printf("\n----------------------------------------------------\n");
     printf("      Bienvenue dans l'outil d'extraction d'API     \n");
     printf("----------------------------------------------------\n\n");
-
+    
     char apiUrl[1024];
     printf("Veuillez entrer l'URL de l'API :\n");
     scanf("%1023s", apiUrl);
