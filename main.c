@@ -1,29 +1,31 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <curl/curl.h>
 #include <jansson.h>
 
-// Cette fonction est utilisée par libcurl comme un rappel pour écrire les données reçues
-// Les données sont écrites dans responseBuffer, qui est une chaîne de caractères dans ce cas.
-size_t writeApiResponseToBuffer(char *data, size_t blockSize, size_t blockCount, void *responseBuffer) {
+#define MAX_KEYS 100
 
-    // Calculer la taille réelle des données
-    size_t receivedDataSize = blockSize * blockCount; 
+typedef struct {
+    char *data;
+    size_t len;
+} response_buffer;
 
-    char *responseStr = (char *)responseBuffer; 
+size_t writeApiResponseToBuffer(void *ptr, size_t size, size_t nmemb, response_buffer *buffer) {
+    size_t new_len = buffer->len + size * nmemb;
+    buffer->data = realloc(buffer->data, new_len + 1);
+    if (buffer->data == NULL) {
+        fprintf(stderr, "Pas assez de mémoire (realloc returned NULL)\n");
+        return 0;
+    }
+    memcpy(buffer->data + buffer->len, ptr, size * nmemb);
+    buffer->data[new_len] = '\0';
+    buffer->len = new_len;
 
-    // Ajouter les nouvelles données à la fin de la chaîne
-    strcat(responseStr, data); 
-
-    return receivedDataSize; 
-
+    return size * nmemb;
 }
 
-
-// Cette fonction extrait une valeur spécifique d'un objet JSON en fonction de la clé fournie.
-// Elle parcourt récursivement les sous-objets et tableaux pour trouver la clé.
-json_t *extractValueFromJsonByKey(json_t *jsonRoot, const char *searchKey)
-{
+json_t *extractValueFromJsonByKey(json_t *jsonRoot, const char *searchKey) {
     if (!json_is_object(jsonRoot)) {
         fprintf(stderr, "Le JSON fourni n'est pas un objet.\n");
         return NULL;
@@ -56,17 +58,16 @@ json_t *extractValueFromJsonByKey(json_t *jsonRoot, const char *searchKey)
     return NULL;
 }
 
-
 void fetchApiDataAndPrintValues(const char *apiUrl, const char *searchKeys[], size_t numOfKeys) {
     CURL *apiRequest;
     CURLcode requestResult;
-    char apiResponse[4096] = { 0 };
+    response_buffer buffer = {0};
 
     apiRequest = curl_easy_init();
     if (apiRequest) {
         curl_easy_setopt(apiRequest, CURLOPT_URL, apiUrl);
         curl_easy_setopt(apiRequest, CURLOPT_WRITEFUNCTION, writeApiResponseToBuffer);
-        curl_easy_setopt(apiRequest, CURLOPT_WRITEDATA, apiResponse);
+        curl_easy_setopt(apiRequest, CURLOPT_WRITEDATA, &buffer);
 
         requestResult = curl_easy_perform(apiRequest);
 
@@ -75,7 +76,7 @@ void fetchApiDataAndPrintValues(const char *apiUrl, const char *searchKeys[], si
         }
         else {
             json_error_t jsonError;
-            json_t *jsonRoot = json_loads(apiResponse, 0, &jsonError);
+            json_t *jsonRoot = json_loads(buffer.data, 0, &jsonError);
             if (jsonRoot) {
                 for (size_t i = 0; i < numOfKeys; i++) {
                     json_t *value = extractValueFromJsonByKey(jsonRoot, searchKeys[i]);
@@ -101,8 +102,10 @@ void fetchApiDataAndPrintValues(const char *apiUrl, const char *searchKeys[], si
         }
         curl_easy_cleanup(apiRequest);
     }
+    if (buffer.data) {
+        free(buffer.data);
+    }
 }
-
 
 int main(void) {
     printf("\n----------------------------------------------------\n");
@@ -117,7 +120,7 @@ int main(void) {
     printf("\nCombien de clés voulez-vous entrer ?\n");
     scanf("%d", &numOfKeys);
 
-    char searchKeys[numOfKeys][256];
+    char searchKeys[MAX_KEYS][256];
     printf("\nVeuillez entrer les clés une par une :\n");
     for (int i = 0; i < numOfKeys; i++) {
         printf("Clé n°%d : ", i + 1);
@@ -126,7 +129,7 @@ int main(void) {
 
     printf("\nTraitement en cours...\n\n");
 
-    const char *keysPtrs[numOfKeys];
+    const char *keysPtrs[MAX_KEYS];
     for (int i = 0; i < numOfKeys; i++) {
         keysPtrs[i] = searchKeys[i];
     }
@@ -137,4 +140,3 @@ int main(void) {
 
     return 0;
 }
-
